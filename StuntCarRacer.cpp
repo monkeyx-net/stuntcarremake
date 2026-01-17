@@ -2150,6 +2150,14 @@ int main(int argc, const char** argv)
 	}
 #ifdef USE_SDL2
 	SDL_GLContext context = NULL;
+	// Try to set video driver for better compatibility on ARM devices
+	const char* video_driver = getenv("SDL_VIDEODRIVER");
+	if (!video_driver) {
+		// Prefer X11 on Linux systems for better compatibility
+		#ifdef __aarch64__
+		SDL_SetHint(SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR, "0");
+		#endif
+	}
 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_JOYSTICK)==-1) {
 		printf("Could not initialise SDL2: %s\n", SDL_GetError());
 		exit(-1);
@@ -2191,11 +2199,18 @@ int main(int argc, const char** argv)
 		exit(0);
 	}
 
+    // Request OpenGL attributes - use more compatible settings for ARM devices
     SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 5 );
     SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 5 );
     SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 5 );
     SDL_GL_SetAttribute( SDL_GL_DEPTH_SIZE, 16 );
     SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
+#ifdef __aarch64__
+    // On ARM64, prefer compatibility profile and request accelerated renderer
+    SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 2 );
+    SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 0 );
+#endif
 
 #if defined(PANDORA)
 	int revision = 5;
@@ -2286,8 +2301,20 @@ int main(int argc, const char** argv)
 	}
 	context = SDL_GL_CreateContext(window);
 	if(context==NULL) {
+#ifdef __aarch64__
+		// Try again with more relaxed OpenGL requirements for ARM devices
+		printf("First OpenGL context creation failed, trying with relaxed settings...\n");
+		SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 1 );
+		SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
+		SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 0 );
+		context = SDL_GL_CreateContext(window);
+		if(context==NULL) {
+#endif
 			printf("Couldn't create OpenGL Context: %s\n", SDL_GetError());
 			exit(-3);
+#ifdef __aarch64__
+		}
+#endif
 	}
 	SDL_GetWindowSize(window, &screenW, &screenH);
 	SDL_SetWindowTitle(window, maintitle);
