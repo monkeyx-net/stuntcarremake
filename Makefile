@@ -84,6 +84,7 @@ ifeq ($(PROFILE),1)
 endif
 
 #SDL=1
+#GL4ES=1
 ifeq ($(EMSCRIPTEN),1)
 	GL4ES = ../gl4es/lib/libGL.a
 	LIB+= -lopenal ${GL4ES}
@@ -96,6 +97,12 @@ else
 	SDL_=
 	CFLAGS+=`sdl-config --cflags`
 	TTF_ = SDL_ttf
+endif
+
+# GL4ES support for native builds
+ifeq ($(GL4ES),1)
+	CFLAGS += -I../gl4es/include
+	HAVE_GL4ES = 1
 endif
 
 # library headers
@@ -119,11 +126,16 @@ ifeq ($(MINGW),1)
 	LIB += -lglu32 -lopengl32
 	LIB += -lsocket -lws2_32 -lwsock32 -lwinmm -lOpenAL32
 else
-	ifeq ($(HAVE_GLES),1)
-		LIB += -lGLES_CM -lEGL
-		CFLAGS += -DHAVE_GLES
+	ifeq ($(HAVE_GL4ES),1)
+		LIB += -L../gl4es/lib -lGL
+		CFLAGS += -DHAVE_GL4ES
 	else
-		LIB += -lGL -lGLU
+		ifeq ($(HAVE_GLES),1)
+			LIB += -lGLES_CM -lEGL
+			CFLAGS += -DHAVE_GLES
+		else
+			LIB += -lGL -lGLU
+		endif
 	endif
 	LIB += -lopenal
 endif
